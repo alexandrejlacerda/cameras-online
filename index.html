@@ -21,13 +21,9 @@ main { padding: 12px; }
 .toolbar select { flex: 1; }
 
 .cam-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.cam-list li { background: #111827; border-radius: 10px; padding: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.cam-list li .info { flex: 1 1 100%; }
-.cam-list .actions { display: flex; gap: 8px; flex: 1 1 100%; }
-.cam-list .actions button { flex: 1; padding: 10px 6px; font-size: 14px; border-radius: 8px; border: 0; cursor: pointer; }
-.cam-list .actions .play { background: #2563eb; color: #fff; }
-.cam-list .actions .edit { background: #374151; color: #fff; }
-.cam-list .actions .del { background: #b91c1c; color: #fff; }
+.cam-list li { background: #111827; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 10px; }
+.cam-list li .info { flex: 1; min-width: 0; }
+.cam-list li .play { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 4px 10px; font-size: 14px; cursor: pointer; }
 .cam-list li .info { flex: 1; min-width: 0; }
 .cam-list .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cam-list .meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
@@ -110,6 +106,8 @@ label input, label select, label textarea { margin-top: 4px; }
       <span id="updated"></span>
       <span class="info-actions">
         <a id="btnExt" class="ghost small link-btn" href="#" target="_blank" rel="noopener">Abrir original</a>
+        <button id="btnEditCam" class="ghost small">Editar</button>
+        <button id="btnDelCam" class="danger small">Apagar</button>
         <button id="btnRefresh" class="ghost small">Atualizar agora</button>
       </span>
     </div>
@@ -211,7 +209,7 @@ label input, label select, label textarea { margin-top: 4px; }
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js" defer></script>
   <script defer>
-/* Câmeras Online - rev04 */
+/* Câmeras Online - rev05 */
 (() => {
   'use strict';
 
@@ -349,20 +347,9 @@ label input, label select, label textarea { margin-top: 4px; }
         li.innerHTML = `
           <div class="info">
             <div class="name">${esc(c.name)}</div>
-            <div class="meta">${typeLabel(c.type)} · ${every}</div>
           </div>
-          <div class="actions">
-            <button class="play">▶ Ver</button>
-            <button class="edit">✎ Editar</button>
-            <button class="del">🗑 Apagar</button>
-          </div>`;
+          <button class="play">▶ Ver</button>`;
         li.querySelector('.play').onclick = () => openViewer(filtered(), filtered().findIndex((x) => x.id === c.id));
-        li.querySelector('.edit').onclick = () => openCamForm(c);
-        li.querySelector('.del').onclick = () => {
-          if (!confirm('Apagar a câmera "' + c.name + '"?')) return;
-          data.cams = data.cams.filter((x) => x.id !== c.id);
-          save(); refreshFolderFilter(); renderList();
-        };
         ul.appendChild(li);
       });
     });
@@ -436,6 +423,7 @@ label input, label select, label textarea { margin-top: 4px; }
     closeCamForm();
     refreshFolderFilter();
     renderList();
+    if (!$('viewer').classList.contains('hidden')) show();
   });
 
   $('btnDelete').onclick = () => {
@@ -443,6 +431,10 @@ label input, label select, label textarea { margin-top: 4px; }
     if (!confirm('Apagar esta câmera?')) return;
     data.cams = data.cams.filter((c) => c.id !== editingId);
     save(); closeCamForm(); refreshFolderFilter(); renderList();
+    if (!$('viewer').classList.contains('hidden')) {
+      view.list = view.list.filter((x) => x.id !== editingId);
+      if (!view.list.length) closeViewer(); else { view.index = Math.min(view.index, view.list.length - 1); show(); }
+    }
   };
   $('btnDuplicate').onclick = () => {
     const c = data.cams.find((x) => x.id === editingId);
@@ -657,6 +649,17 @@ label input, label select, label textarea { margin-top: 4px; }
     }, sec * 1000);
   }
   $('btnRefresh').onclick = () => show();
+  $('btnEditCam').onclick = () => { if (cur()) openCamForm(cur()); };
+  $('btnDelCam').onclick = () => {
+    const c = cur(); if (!c) return;
+    if (!confirm('Apagar a câmera "' + c.name + '"?')) return;
+    data.cams = data.cams.filter((x) => x.id !== c.id);
+    save(); refreshFolderFilter(); renderList();
+    view.list.splice(view.index, 1);
+    if (!view.list.length) { closeViewer(); return; }
+    if (view.index >= view.list.length) view.index = 0;
+    show();
+  };
 
   function go(delta) {
     const n = view.list.length;
