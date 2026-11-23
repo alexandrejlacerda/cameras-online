@@ -219,7 +219,7 @@ label input, label select, label textarea { margin-top: 4px; }
   const $ = (id) => document.getElementById(id);
 
   // ---------- Estado e armazenamento ----------
-  let data = load();
+  let data = null;
   let view = { list: [], index: 0, timer: null, autoOn: false, autoTimer: null, wake: null, hls: null };
 
   function defaults() {
@@ -257,7 +257,8 @@ label input, label select, label textarea { margin-top: 4px; }
   function save() {
     localStorage.setItem(KEY, JSON.stringify(data));
   }
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  data = load();
 
   // ---------- Utilidades ----------
   function detectType(url) {
