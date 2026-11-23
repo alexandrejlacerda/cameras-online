@@ -91,6 +91,7 @@ label input, label select, label textarea { margin-top: 4px; }
     <div class="toolbar">
       <select id="folderFilter"></select>
       <button id="btnRootSort" class="ghost small"></button>
+      <button id="btnCollapseAll" class="ghost small"></button>
       <button id="btnAdd" class="primary">+ Inserir link</button>
     </div>
     <ul id="camList" class="cam-list"></ul>
@@ -213,7 +214,7 @@ label input, label select, label textarea { margin-top: 4px; }
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js" defer></script>
   <script defer>
-/* Câmeras Online - rev07 */
+/* Câmeras Online - rev08 */
 (() => {
   'use strict';
 
@@ -379,10 +380,11 @@ label input, label select, label textarea { margin-top: 4px; }
     arr[x] = other; arr[y] = item;
     save(); renderList();
   }
-  function nodes(filter) {
+  function nodes(filter, all) {
     const out = [];
     function walkFolder(f, depth) {
       out.push({ t: 'f', f: f, depth: depth });
+      if (f.collapsed && !all) return;
       kidsF(f.id).forEach(function (s) { walkFolder(s, depth + 1); });
       kidsC(f.id).forEach(function (c) { out.push({ t: 'c', c: c, depth: depth + 1 }); });
     }
@@ -411,6 +413,11 @@ label input, label select, label textarea { margin-top: 4px; }
     rb.classList.toggle('hidden', !(filter === 'all' || filter === ''));
     rb.textContent = 'Ordem: ' + (sortOf('') === 'alpha' ? 'A–Z' : 'Manual');
     rb.onclick = () => toggleSort('');
+    const ca = $('btnCollapseAll');
+    const anyOpen = data.folders.some((f) => !f.collapsed);
+    ca.textContent = anyOpen ? 'Recolher' : 'Expandir';
+    ca.onclick = () => { data.folders.forEach((f) => { f.collapsed = anyOpen; }); save(); renderList(); };
+    ca.classList.toggle('hidden', !data.folders.length);
     function moveBtns(li, arr, item, sibs, pid) {
       if (sortOf(pid) !== 'custom') return null;
       const i = sibs.indexOf(item);
@@ -436,7 +443,7 @@ label input, label select, label textarea { margin-top: 4px; }
         } else {
           const ids = descendants(n.f.id);
           const cnt = data.cams.filter((c) => ids.includes(c.folderId)).length;
-          li.innerHTML = '<strong style="color:#93c5fd;flex:1;min-width:0">📁 ' + esc(n.f.name) + ' <span class="meta">(' + cnt + ')</span></strong>';
+          li.innerHTML = '<strong style="color:#93c5fd;flex:1;min-width:0;cursor:pointer">' + (n.f.collapsed ? '▶ ' : '▼ ') + '📁 ' + esc(n.f.name) + ' <span class="meta">(' + cnt + ')</span></strong>';
           const pid = n.f.parentId && fget(n.f.parentId) ? n.f.parentId : '';
           const mb = moveBtns(li, data.folders, n.f, kidsF(pid), pid);
           if (mb) li.appendChild(mb);
@@ -445,6 +452,8 @@ label input, label select, label textarea { margin-top: 4px; }
           sb.textContent = sortOf(n.f.id) === 'alpha' ? 'A–Z' : 'Manual';
           sb.onclick = () => toggleSort(n.f.id);
           li.appendChild(sb);
+          li.style.cursor = 'pointer';
+          li.onclick = (e) => { if (e.target.closest('button')) return; n.f.collapsed = !n.f.collapsed; save(); renderList(); };
         }
       } else {
         const c = n.c;
@@ -468,7 +477,7 @@ label input, label select, label textarea { margin-top: 4px; }
     $('title').textContent = total ? 'Câmeras Online (' + total + ')' : 'Câmeras Online';
   }
   function filtered() {
-    return nodes($('folderFilter').value || 'all').filter((n) => n.t === 'c').map((n) => n.c);
+    return nodes($('folderFilter').value || 'all', true).filter((n) => n.t === 'c').map((n) => n.c);
   }
   function typeLabel(t) {
     return { image: 'Imagem', video: 'Vídeo ao vivo', embed: 'Página/YouTube', link: 'Link externo', rtsp: 'RTSP (não reproduz direto)' }[t] || t;
