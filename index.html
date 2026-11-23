@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#111827">
+  <title>Câmeras Online</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>">
+  <style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #0b1220; color: #e5e7eb; }
+body { display: flex; flex-direction: column; min-height: 100vh; }
+.hidden { display: none !important; }
+
+.topbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #111827; position: sticky; top: 0; z-index: 5; }
+.topbar h1 { font-size: 18px; margin: 0; flex: 1; text-align: center; }
+
+main { padding: 12px; }
+.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+.toolbar select { flex: 1; }
+
+.cam-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.cam-list li { background: #111827; border-radius: 10px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+.cam-list li .info { flex: 1; min-width: 0; }
+.cam-list .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cam-list .meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.cam-list .play { background: #1f2937; color: #fff; border: 0; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+.cam-list .edit { background: transparent; color: #9ca3af; border: 0; font-size: 18px; cursor: pointer; padding: 6px; }
+.empty { text-align: center; color: #9ca3af; padding: 24px; }
+
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 0; padding: 10px 14px; }
+button.primary { background: #2563eb; color: #fff; }
+button.ghost { background: #1f2937; color: #e5e7eb; }
+button.danger { background: #b91c1c; color: #fff; }
+button.small { padding: 6px 10px; font-size: 13px; }
+button:disabled { opacity: .5; }
+.info-actions { display: flex; gap: 6px; align-items: center; }
+.link-btn { text-decoration: none; display: inline-block; padding: 6px 10px; border-radius: 8px; background: #1f2937; color: #e5e7eb; font-size: 13px; }
+.link-btn.hidden { display: none !important; }
+input, select, textarea { font: inherit; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #374151; background: #0b1220; color: #e5e7eb; }
+label { display: block; font-size: 14px; color: #cbd5e1; margin-bottom: 10px; }
+label input, label select, label textarea { margin-top: 4px; }
+.hint { font-size: 13px; color: #9ca3af; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.row.wrap { flex-wrap: wrap; }
+.spacer { flex: 1; }
+.file-btn { background: #1f2937; color: #e5e7eb; border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: -2px 0 6px; }
+.chip { background: #1f2937; color: #e5e7eb; padding: 6px 10px; font-size: 13px; }
+.folder-list { list-style: none; padding: 0; margin: 0 0 8px; }
+.folder-list li { padding: 6px 0; border-bottom: 1px solid #1f2937; font-size: 14px; }
+
+/* Viewer */
+.viewer { flex: 1; display: flex; flex-direction: column; position: fixed; inset: 0; background: #000; z-index: 10; }
+.viewer-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #111827; }
+.view-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.view-count { font-size: 12px; color: #9ca3af; }
+.stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; position: relative; }
+.stage img, .stage video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.stage iframe { width: 100%; height: 100%; border: 0; }
+.stage .notice { color: #cbd5e1; padding: 20px; text-align: center; font-size: 15px; }
+.stage .notice a { color: #60a5fa; }
+.viewer-info { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; font-size: 13px; color: #9ca3af; background: #111827; }
+.controls { display: flex; gap: 8px; padding: 10px; background: #111827; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+.controls .ctrl { flex: 1; background: #1f2937; color: #fff; padding: 14px 6px; font-size: 15px; }
+.controls .ctrl.on { background: #2563eb; }
+
+/* Modals */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+.sheet { background: #111827; width: 100%; max-width: 560px; max-height: 92vh; overflow: auto; border-radius: 16px 16px 0 0; padding: 16px; }
+.sheet h2 { margin: 0 0 12px; font-size: 18px; }
+.sheet h3 { margin: 16px 0 8px; font-size: 15px; color: #cbd5e1; }
+@media (min-width: 700px) { .modal { align-items: center; } .sheet { border-radius: 16px; } }
+
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <button id="btnFolders" class="ghost" title="Pastas">☰</button>
+    <h1 id="title">Câmeras Online</h1>
+    <button id="btnSettings" class="ghost" title="Configurações">⚙</button>
+  </header>
+
+  <!-- Tela inicial: lista de câmeras -->
+  <main id="listView">
+    <div class="toolbar">
+      <select id="folderFilter"></select>
+      <button id="btnAdd" class="primary">+ Inserir link</button>
+    </div>
+    <ul id="camList" class="cam-list"></ul>
+    <p id="emptyMsg" class="empty hidden">Nenhuma câmera cadastrada. Toque em “Inserir link”.</p>
+  </main>
+
+  <!-- Tela de visualização -->
+  <section id="viewer" class="viewer hidden">
+    <div class="viewer-bar">
+      <button id="btnBack" class="ghost">← Lista</button>
+      <span id="viewName" class="view-name"></span>
+      <span id="viewCount" class="view-count"></span>
+    </div>
+    <div id="stage" class="stage"></div>
+    <div class="viewer-info">
+      <span id="updated"></span>
+      <span class="info-actions">
+        <a id="btnExt" class="ghost small link-btn" href="#" target="_blank" rel="noopener">Abrir original</a>
+        <button id="btnRefresh" class="ghost small">Atualizar agora</button>
+      </span>
+    </div>
+    <div class="controls">
+      <button id="btnPrev" class="ctrl">⏮ Anterior</button>
+      <button id="btnAuto" class="ctrl">▶ Auto</button>
+      <button id="btnNext" class="ctrl">Próxima ⏭</button>
+    </div>
+  </section>
+
+  <!-- Modal inserir/editar -->
+  <div id="modalCam" class="modal hidden">
+    <form id="camForm" class="sheet">
+      <h2 id="camTitle">Inserir link</h2>
+      <label>Nome
+        <input id="fName" required placeholder="Ex.: Praia Grande - Canto do Forte">
+      </label>
+      <label>Link (URL)
+        <input id="fUrl" type="url" required placeholder="https://...">
+      </label>
+      <label>Pasta
+        <select id="fFolder"></select>
+      </label>
+      <label>Nova pasta (opcional)
+        <input id="fNewFolder" placeholder="Ex.: Praias">
+      </label>
+      <label>Tipo
+        <select id="fType">
+          <option value="auto">Detectar automaticamente</option>
+          <option value="image">Imagem estática (atualiza)</option>
+          <option value="video">Vídeo HLS (.m3u8)</option>
+          <option value="embed">Página / YouTube (embed)</option>
+          <option value="link">Abrir em outra aba</option>
+        </select>
+      </label>
+      <label>Atualizar a cada (segundos)
+        <input id="fInterval" type="number" min="0" step="1" value="0">
+      </label>
+      <div class="chips">
+        <button type="button" class="chip" data-sec="30">30 s</button>
+        <button type="button" class="chip" data-sec="60">1 min</button>
+        <button type="button" class="chip" data-sec="300">5 min</button>
+        <button type="button" class="chip" data-sec="0">Nunca</button>
+      </div>
+      <input id="fId" type="hidden">
+      <div class="row">
+        <button type="button" id="btnDelete" class="danger hidden">Apagar</button>
+        <button type="button" id="btnDuplicate" class="ghost hidden">Duplicar</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnCancel" class="ghost">Cancelar</button>
+        <button type="submit" class="primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal importar em lote -->
+  <div id="modalBulk" class="modal hidden">
+    <div class="sheet">
+      <h2>Importar vários links</h2>
+      <p class="hint">Um link por linha. Cada um vira uma câmera com o nome do site.</p>
+      <label>Pasta
+        <select id="bulkFolder"></select>
+      </label>
+      <textarea id="bulkText" rows="8" placeholder="https://...&#10;https://..."></textarea>
+      <div class="row">
+        <span class="spacer"></span>
+        <button type="button" id="bulkCancel" class="ghost">Cancelar</button>
+        <button type="button" id="bulkSave" class="primary">Importar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pastas e configurações -->
+  <div id="modalSettings" class="modal hidden">
+    <div class="sheet">
+      <h2>Configurações</h2>
+      <label>Tempo do modo automático (segundos por câmera)
+        <input id="setAutoSec" type="number" min="3" step="1" value="20">
+      </label>
+      <h3>Pastas</h3>
+      <ul id="folderList" class="folder-list"></ul>
+      <div class="row">
+        <input id="newFolderName" placeholder="Nome da nova pasta">
+        <button id="btnNewFolder" class="ghost">Criar</button>
+      </div>
+      <h3>Dados</h3>
+      <div class="row wrap">
+        <button id="btnBulk" class="ghost">Importar vários links</button>
+        <button id="btnExport" class="ghost">Exportar lista</button>
+        <label class="ghost file-btn">Importar arquivo<input id="fileImport" type="file" accept="application/json" hidden></label>
+      </div>
+      <div class="row">
+        <span class="spacer"></span>
+        <button id="btnSettingsClose" class="primary">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js" defer></script>
+  <script defer>
+/* Câmeras Online - rev01 */
+(() => {
+  'use strict';
+
+  const KEY = 'cameras-online-v1';
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Estado e armazenamento ----------
+  let data = load();
+  let view = { list: [], index: 0, timer: null, autoOn: false, autoTimer: null, wake: null, hls: null };
+
+  function defaults() {
+    return { folders: [], cams: [], settings: { autoSec: 20 } };
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return defaults();
+      const d = JSON.parse(raw);
+      return Object.assign(defaults(), d);
+    } catch (e) {
+      console.error(e);
+      return defaults();
+    }
+  }
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  // ---------- Utilidades ----------
+  function detectType(url) {
+    if (/^rtsp:/i.test(url)) return 'rtsp';
+    if (youtubeId(url)) return 'embed';
+    if (/\.m3u8(\?|$)/i.test(url)) return 'video';
+    if (/\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(url)) return 'image';
+    return 'embed';
+  }
+  function youtubeId(url) {
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\.|^m\./, '');
+      if (host === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+      if (host === 'youtube.com') {
+        if (u.pathname === '/watch') return u.searchParams.get('v');
+        const m = u.pathname.match(/^\/(live|embed|shorts)\/([^/?]+)/);
+        if (m) return m[2];
+      }
+    } catch (_) {}
+    return null;
+  }
+  function validUrl(s) {
+    try {
+      const u = new URL(s);
+      return ['http:', 'https:', 'rtsp:'].includes(u.protocol);
+    } catch (_) { return false; }
+  }
+  function bust(url) {
+    return url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+  }
+  function folderName(id) {
+    const f = data.folders.find((x) => x.id === id);
+    return f ? f.name : 'Sem pasta';
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function nowTime() {
+    return new Date().toLocaleTimeString('pt-BR');
+  }
+
+  // ---------- Pastas ----------
+  function ensureFolder(name) {
+    name = (name || '').trim();
+    if (!name) return '';
+    const found = data.folders.find((f) => f.name.toLowerCase() === name.toLowerCase());
+    if (found) return found.id;
+    const f = { id: uid(), name };
+    data.folders.push(f);
+    return f.id;
+  }
+  function fillFolderSelect(sel, selected, withAll) {
+    sel.innerHTML = '';
+    if (withAll) sel.add(new Option('Todas as pastas', 'all'));
+    sel.add(new Option('Sem pasta', ''));
+    data.folders.forEach((f) => sel.add(new Option(f.name, f.id)));
+    sel.value = selected;
+  }
+
+  // ---------- Lista ----------
+  function renderList() {
+    const filter = $('folderFilter').value || 'all';
+    const ul = $('camList');
+    ul.innerHTML = '';
+    const groups = [];
+    const folderIds = data.folders.map((f) => f.id).concat(['']);
+    folderIds.forEach((fid) => {
+      if (filter !== 'all' && filter !== fid) return;
+      const cams = data.cams.filter((c) => (c.folderId || '') === fid);
+      if (cams.length) groups.push({ fid, cams });
+    });
+    if (!groups.length) {
+      $('emptyMsg').classList.remove('hidden');
+    } else {
+      $('emptyMsg').classList.add('hidden');
+    }
+    groups.forEach((g) => {
+      const h = document.createElement('li');
+      h.className = 'group-head';
+      h.style.background = 'transparent';
+      h.style.padding = '8px 2px 0';
+      h.innerHTML = `<strong style="color:#93c5fd">📁 ${esc(folderName(g.fid))}</strong> <span class="meta">(${g.cams.length})</span>`;
+      ul.appendChild(h);
+      g.cams.forEach((c) => {
+        const li = document.createElement('li');
+        const every = c.interval > 0 ? `atualiza a cada ${fmtSec(c.interval)}` : 'sem atualização automática';
+        li.innerHTML = `
+          <div class="info">
+            <div class="name">${esc(c.name)}</div>
+            <div class="meta">${typeLabel(c.type)} · ${every}</div>
+          </div>
+          <button class="play">▶ Ver</button>
+          <button class="edit" title="Editar">✎</button>`;
+        li.querySelector('.play').onclick = () => openViewer(filtered(), filtered().findIndex((x) => x.id === c.id));
+        li.querySelector('.edit').onclick = () => openCamForm(c);
+        ul.appendChild(li);
+      });
+    });
+    const total = data.cams.length;
+    $('title').textContent = total ? `Câmeras Online (${total})` : 'Câmeras Online';
+  }
+  function filtered() {
+    const filter = $('folderFilter').value || 'all';
+    return data.cams.filter((c) => filter === 'all' || (c.folderId || '') === filter)
+      .sort((a, b) => (folderName(a.folderId || '') + a.name).localeCompare(folderName(b.folderId || '') + b.name, 'pt-BR'));
+  }
+  function typeLabel(t) {
+    return { image: 'Imagem', video: 'Vídeo ao vivo', embed: 'Página/YouTube', link: 'Link externo', rtsp: 'RTSP (não reproduz direto)' }[t] || t;
+  }
+  function fmtSec(s) {
+    if (s % 60 === 0 && s >= 60) return (s / 60) + (s / 60 === 1 ? ' min' : ' min');
+    return s + ' s';
+  }
+  function refreshFolderFilter() {
+    const cur = $('folderFilter').value || 'all';
+    const sel = $('folderFilter');
+    sel.innerHTML = '';
+    sel.add(new Option('Todas as pastas', 'all'));
+    if (data.cams.some((c) => !c.folderId)) sel.add(new Option('Sem pasta', ''));
+    data.folders.forEach((f) => sel.add(new Option(f.name, f.id)));
+    sel.value = [...sel.options].some((o) => o.value === cur) ? cur : 'all';
+  }
+
+  // ---------- Formulário inserir/editar ----------
+  let editingId = null;
+  function openCamForm(cam) {
+    editingId = cam ? cam.id : null;
+    $('camTitle').textContent = cam ? 'Editar câmera' : 'Inserir link';
+    $('fName').value = cam ? cam.name : '';
+    $('fUrl').value = cam ? cam.url : '';
+    fillFolderSelect($('fFolder'), cam ? (cam.folderId || '') : (data.folders[0] ? data.folders[0].id : ''));
+    $('fNewFolder').value = '';
+    $('fType').value = cam ? (cam.typeOverride ? cam.type : 'auto') : 'auto';
+    $('fInterval').value = cam ? (cam.interval || 0) : 0;
+    $('btnDelete').classList.toggle('hidden', !cam);
+    $('btnDuplicate').classList.toggle('hidden', !cam);
+    $('modalCam').classList.remove('hidden');
+    setTimeout(() => $('fName').focus(), 50);
+  }
+  function closeCamForm() { $('modalCam').classList.add('hidden'); }
+
+  $('btnAdd').onclick = () => openCamForm(null);
+  $('btnCancel').onclick = closeCamForm;
+  document.querySelectorAll('.chip[data-sec]').forEach((b) => {
+    b.onclick = () => { $('fInterval').value = b.dataset.sec; };
+  });
+
+  $('camForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('fName').value.trim();
+    const url = $('fUrl').value.trim();
+    if (!name) return alert('Informe um nome.');
+    if (!validUrl(url)) return alert('Link inválido. Use http://, https:// ou rtsp://');
+    const newFolder = $('fNewFolder').value.trim();
+    const folderId = newFolder ? ensureFolder(newFolder) : $('fFolder').value;
+    const sel = $('fType').value;
+    const type = sel === 'auto' ? detectType(url) : sel;
+    const interval = Math.max(0, parseInt($('fInterval').value, 10) || 0);
+    const fields = { name, url, folderId, type, typeOverride: sel !== 'auto', interval };
+    if (editingId) {
+      Object.assign(data.cams.find((c) => c.id === editingId), fields);
+    } else {
+      data.cams.push(Object.assign({ id: uid() }, fields));
+    }
+    save();
+    closeCamForm();
+    refreshFolderFilter();
+    renderList();
+  });
+
+  $('btnDelete').onclick = () => {
+    if (!editingId) return;
+    if (!confirm('Apagar esta câmera?')) return;
+    data.cams = data.cams.filter((c) => c.id !== editingId);
+    save(); closeCamForm(); refreshFolderFilter(); renderList();
+  };
+  $('btnDuplicate').onclick = () => {
+    const c = data.cams.find((x) => x.id === editingId);
+    if (!c) return;
+    editingId = null;
+    $('camTitle').textContent = 'Duplicar câmera';
+    $('fName').value = c.name + ' (cópia)';
+    $('btnDelete').classList.add('hidden');
+    $('btnDuplicate').classList.add('hidden');
+  };
+
+  // ---------- Pastas e configurações ----------
+  function renderFolders() {
+    const ul = $('folderList');
+    ul.innerHTML = '';
+    if (!data.folders.length) ul.innerHTML = '<li class="hint">Nenhuma pasta ainda.</li>';
+    data.folders.forEach((f) => {
+      const n = data.cams.filter((c) => c.folderId === f.id).length;
+      const li = document.createElement('li');
+      li.innerHTML = `<span>📁 ${esc(f.name)} (${n})</span> <span class="spacer"></span>`;
+      const ren = document.createElement('button');
+      ren.className = 'ghost small'; ren.textContent = 'Renomear';
+      ren.onclick = () => {
+        const nn = prompt('Novo nome da pasta:', f.name);
+        if (nn && nn.trim()) { f.name = nn.trim(); save(); renderFolders(); refreshFolderFilter(); renderList(); }
+      };
+      const del = document.createElement('button');
+      del.className = 'danger small'; del.textContent = 'Apagar'; del.style.marginLeft = '6px';
+      del.onclick = () => {
+        if (!confirm(`Apagar a pasta "${f.name}"? As câmeras dela ficam em "Sem pasta".`)) return;
+        data.cams.forEach((c) => { if (c.folderId === f.id) c.folderId = ''; });
+        data.folders = data.folders.filter((x) => x.id !== f.id);
+        save(); renderFolders(); refreshFolderFilter(); renderList();
+      };
+      li.appendChild(ren); li.appendChild(del);
+      ul.appendChild(li);
+    });
+  }
+  $('btnFolders').onclick = () => { renderFolders(); $('modalSettings').classList.remove('hidden'); };
+  $('btnSettings').onclick = $('btnFolders').onclick;
+  $('btnSettingsClose').onclick = () => {
+    const v = Math.max(3, parseInt($('setAutoSec').value, 10) || 20);
+    data.settings.autoSec = v; save();
+    $('modalSettings').classList.add('hidden');
+  };
+  $('btnNewFolder').onclick = () => {
+    const n = $('newFolderName').value.trim();
+    if (!n) return;
+    ensureFolder(n); $('newFolderName').value = '';
+    save(); renderFolders(); refreshFolderFilter();
+  };
+  $('folderFilter').onchange = renderList;
+
+  // ---------- Importar em lote ----------
+  $('btnBulk').onclick = () => {
+    fillFolderSelect($('bulkFolder'), data.folders[0] ? data.folders[0].id : '');
+    $('bulkText').value = '';
+    $('modalBulk').classList.remove('hidden');
+  };
+  $('bulkCancel').onclick = () => $('modalBulk').classList.add('hidden');
+  $('bulkSave').onclick = () => {
+    const lines = $('bulkText').value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    let ok = 0, bad = 0;
+    const folderId = $('bulkFolder').value;
+    lines.forEach((url) => {
+      if (!validUrl(url)) { bad++; return; }
+      let name; try { name = new URL(url).hostname; } catch (_) { name = url; }
+      data.cams.push({ id: uid(), name, url, folderId, type: detectType(url), typeOverride: false, interval: 0 });
+      ok++;
+    });
+    save();
+    $('modalBulk').classList.add('hidden');
+    refreshFolderFilter(); renderList();
+    alert(`${ok} importado(s).` + (bad ? ` ${bad} linha(s) inválida(s) ignorada(s).` : ''));
+  };
+
+  // ---------- Exportar / importar ----------
+  $('btnExport').onclick = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cameras-online-backup.json';
+    a.click();
+  };
+  $('fileImport').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!Array.isArray(d.cams)) throw new Error('arquivo inválido');
+      if (!confirm('Substituir sua lista atual pela do arquivo?')) return;
+      data = Object.assign(defaults(), d);
+      save(); refreshFolderFilter(); renderList(); renderFolders();
+    } catch (err) {
+      alert('Não foi possível importar: ' + err.message);
+    }
+    e.target.value = '';
+  };
+
+  // ---------- Visualizador ----------
+  function openViewer(list, index) {
+    if (!list.length) return alert('Nenhuma câmera nesta pasta.');
+    view.list = list;
+    view.index = Math.max(0, index);
+    $('viewer').classList.remove('hidden');
+    show();
+    requestWake();
+  }
+  function closeViewer() {
+    stopTimers();
+    $('viewer').classList.add('hidden');
+    $('stage').innerHTML = '';
+    releaseWake();
+  }
+  function stopTimers() {
+    clearTimeout(view.timer); view.timer = null;
+    clearTimeout(view.autoTimer); view.autoTimer = null;
+    if (view.hls) { view.hls.destroy(); view.hls = null; }
+  }
+  function cur() { return view.list[view.index]; }
+
+  function show() {
+    stopTimers();
+    const c = cur();
+    const stage = $('stage');
+    stage.innerHTML = '';
+    $('viewName').textContent = c.name;
+    $('viewCount').textContent = `${view.index + 1}/${view.list.length}`;
+    $('updated').textContent = '';
+    const ext = $('btnExt');
+    ext.href = c.url;
+    ext.classList.toggle('hidden', c.type === 'link');
+    const type = c.type;
+
+    if (type === 'image') {
+      const img = document.createElement('img');
+      img.alt = c.name;
+      img.onload = () => { $('updated').textContent = 'Atualizado às ' + nowTime(); };
+      img.onerror = () => notice(stage, 'Não foi possível carregar a imagem.', c.url);
+      img.src = bust(c.url);
+      stage.appendChild(img);
+      scheduleRefresh(() => { img.src = bust(c.url); });
+    } else if (type === 'video') {
+      const v = document.createElement('video');
+      v.controls = true; v.autoplay = true; v.muted = true; v.playsInline = true;
+      stage.appendChild(v);
+      if (window.Hls && Hls.isSupported()) {
+        view.hls = new Hls({ lowLatencyMode: true });
+        view.hls.loadSource(c.url);
+        view.hls.attachMedia(v);
+        view.hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) notice(stage, 'Não foi possível reproduzir este vídeo.', c.url); });
+      } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+        v.src = c.url;
+      } else {
+        notice(stage, 'Este navegador não reproduz HLS.', c.url);
+      }
+      $('updated').textContent = 'Ao vivo';
+    } else if (type === 'embed') {
+      const yt = youtubeId(c.url);
+      const ifr = document.createElement('iframe');
+      ifr.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+      // YouTube (erro 153): precisa de referrer válido e do parâmetro origin.
+      // Só funciona quando o app está em https:// ou http://localhost (não em file://).
+      ifr.referrerPolicy = 'strict-origin-when-cross-origin';
+      if (yt) {
+        const isWeb = /^https?:$/.test(location.protocol);
+        const origin = isWeb ? `&origin=${encodeURIComponent(location.origin)}` : '';
+        ifr.src = `https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&playsinline=1&rel=0${origin}`;
+      } else {
+        ifr.src = c.url;
+      }
+      stage.appendChild(ifr);
+      $('updated').textContent = yt ? 'Ao vivo (YouTube)' : 'Página';
+      if (!yt) {
+        notice(stage, 'Se a página ficar em branco, o site bloqueia exibição em outro app.', c.url, true);
+        // sobrepõe a aviso só no topo para não tapar o conteúdo
+        stage.querySelector('.notice').style.position = 'absolute';
+        stage.querySelector('.notice').style.top = '0';
+        stage.querySelector('.notice').style.padding = '6px';
+        stage.querySelector('.notice').style.fontSize = '12px';
+        stage.querySelector('.notice').style.background = 'rgba(0,0,0,.6)';
+        scheduleRefresh(() => { ifr.src = c.url; });
+      }
+    } else if (type === 'link') {
+      notice(stage, 'Esta câmera abre em outra aba.', c.url);
+    } else {
+      notice(stage, 'Câmera RTSP não toca direto no navegador. Use um conversor (ex.: go2rtc) para gerar HLS e cole o link .m3u8.', null);
+    }
+    if (view.autoOn) scheduleAuto();
+  }
+
+  function notice(stage, msg, url, soft) {
+    const d = document.createElement('div');
+    d.className = 'notice';
+    d.innerHTML = esc(msg) + (url ? ` <br><a href="${esc(url)}" target="_blank" rel="noopener">Abrir o link</a>` : '');
+    stage.appendChild(d);
+    if (!soft) $('updated').textContent = '';
+  }
+
+  function scheduleRefresh(fn) {
+    const sec = cur().interval || 0;
+    if (sec <= 0) return;
+    view.timer = setInterval(() => {
+      fn();
+      $('updated').textContent = 'Atualizado às ' + nowTime();
+    }, sec * 1000);
+  }
+  $('btnRefresh').onclick = () => show();
+
+  function go(delta) {
+    const n = view.list.length;
+    view.index = (view.index + delta + n) % n; // loop: última -> primeira e vice-versa
+    show();
+  }
+  $('btnNext').onclick = () => { go(1); if (view.autoOn) scheduleAuto(); };
+  $('btnPrev').onclick = () => { go(-1); if (view.autoOn) scheduleAuto(); };
+
+  function scheduleAuto() {
+    clearTimeout(view.autoTimer);
+    if (!view.autoOn || view.list.length < 2) return;
+    view.autoTimer = setTimeout(() => {
+      go(1);
+    }, Math.max(3, data.settings.autoSec) * 1000);
+  }
+  $('btnAuto').onclick = () => {
+    view.autoOn = !view.autoOn;
+    $('btnAuto').textContent = view.autoOn ? '⏸ Auto' : '▶ Auto';
+    $('btnAuto').classList.toggle('on', view.autoOn);
+    if (view.autoOn) scheduleAuto(); else clearTimeout(view.autoTimer);
+  };
+  $('btnBack').onclick = closeViewer;
+  document.addEventListener('keydown', (e) => {
+    if ($('viewer').classList.contains('hidden')) return;
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'Escape') closeViewer();
+  });
+
+  // Manter a tela ligada enquanto assiste
+  async function requestWake() {
+    try { if ('wakeLock' in navigator) view.wake = await navigator.wakeLock.request('screen'); } catch (_) {}
+  }
+  function releaseWake() {
+    try { if (view.wake) view.wake.release(); } catch (_) {}
+    view.wake = null;
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !$('viewer').classList.contains('hidden')) requestWake();
+  });
+
+  // ---------- Inicialização ----------
+  $('setAutoSec').value = data.settings.autoSec;
+  refreshFolderFilter();
+  renderList();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+
+</script>
+</body>
+</html>
