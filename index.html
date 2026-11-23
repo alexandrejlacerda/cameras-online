@@ -23,6 +23,7 @@ main { padding: 12px; }
 .cam-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .cam-list li { background: #111827; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 10px; }
 .cam-list li .info { flex: 1; min-width: 0; }
+.cam-list li .tm { text-align: center; color: #93c5fd; font-size: 13px; flex: none; }
 .cam-list li .play { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 4px 10px; font-size: 14px; cursor: pointer; }
 .cam-list li .info { flex: 1; min-width: 0; }
 .cam-list .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -209,7 +210,7 @@ label input, label select, label textarea { margin-top: 4px; }
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js" defer></script>
   <script defer>
-/* Câmeras Online - rev05 */
+/* Câmeras Online - rev06 */
 (() => {
   'use strict';
 
@@ -322,6 +323,8 @@ label input, label select, label textarea { margin-top: 4px; }
     const filter = $('folderFilter').value || 'all';
     const ul = $('camList');
     ul.innerHTML = '';
+    const lab = (c) => (c.interval > 0 ? fmtSec(c.interval) : '—');
+    const tmW = Math.max(3, ...data.cams.map((c) => lab(c).length)) + 1;
     const groups = [];
     const folderIds = data.folders.map((f) => f.id).concat(['']);
     folderIds.forEach((fid) => {
@@ -343,11 +346,12 @@ label input, label select, label textarea { margin-top: 4px; }
       ul.appendChild(h);
       g.cams.forEach((c) => {
         const li = document.createElement('li');
-        const every = c.interval > 0 ? `atualiza a cada ${fmtSec(c.interval)}` : 'sem atualização automática';
+        const tmTxt = lab(c);
         li.innerHTML = `
           <div class="info">
             <div class="name">${esc(c.name)}</div>
           </div>
+          <span class="tm" style="width:${tmW}ch" title="Tempo de atualização">${tmTxt}</span>
           <button class="play">▶ Ver</button>`;
         li.querySelector('.play').onclick = () => openViewer(filtered(), filtered().findIndex((x) => x.id === c.id));
         ul.appendChild(li);
